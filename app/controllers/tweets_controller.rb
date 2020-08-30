@@ -1,92 +1,77 @@
 class TweetsController < ApplicationController
 
     get '/tweets' do
-        if logged_in?
-          @tweets = Tweet.all
-          erb :'tweets/tweets'
-        else
-          redirect to '/login'
+        if !Helpers.is_logged_in?(session)
+            redirect to '/login'
         end
-      end
-    
-      get '/tweets/new' do
-        if logged_in?
-          erb :'tweets/create_tweet'
-        else
-          redirect to '/login'
+        @tweets = Tweet.all
+        erb :'tweets/index'
+    end
+
+    get '/tweets/new' do
+        if !Helpers.is_logged_in?(session)
+            redirect to '/login'
         end
-      end
-    
-      post '/tweets' do
-        if logged_in?
-          if params[:content] == ""
-            redirect to "/tweets/new"
-          else
-            @tweet = current_user.tweets.build(content: params[:content])
-            if @tweet.save
-              redirect to "/tweets/#{@tweet.id}"
-            else
-              redirect to "/tweets/new"
-            end
-          end
-        else
-          redirect to '/login'
+        erb :'tweets/new'
+    end
+
+    post '/tweets' do
+        if params[:tweet][:content] == ""
+            session[:error] = "Tweet cannot be blank"
+            redirect '/tweets/new'
         end
-      end
-    
-      get '/tweets/:id' do
-        if logged_in?
-          @tweet = Tweet.find_by_id(params[:id])
-          erb :'tweets/show_tweet'
-        else
-          redirect to '/login'
+        tweet = Tweet.create(params[:tweet])
+        tweet.user_id = session[:user_id]
+        tweet.save
+
+        redirect '/tweets'
+    end
+
+    get '/tweets/:id' do
+        if !Helpers.is_logged_in?(session)
+            redirect to '/login'
         end
-      end
-    
-      get '/tweets/:id/edit' do
-        if logged_in?
-          @tweet = Tweet.find_by_id(params[:id])
-          if @tweet && @tweet.user == current_user
-            erb :'tweets/edit_tweet'
-          else
-            redirect to '/tweets'
-          end
-        else
-          redirect to '/login'
+        @tweet = Tweet.find(params[:id])
+        erb :'tweets/show'
+    end
+
+    get '/tweets/:id/edit' do
+        if !Helpers.is_logged_in?(session)
+            redirect to '/login'
         end
-      end
-    
-      patch '/tweets/:id' do
-        if logged_in?
-          if params[:content] == ""
-            redirect to "/tweets/#{params[:id]}/edit"
-          else
-            @tweet = Tweet.find_by_id(params[:id])
-            if @tweet && @tweet.user == current_user
-              if @tweet.update(content: params[:content])
-                redirect to "/tweets/#{@tweet.id}"
-              else
-                redirect to "/tweets/#{@tweet.id}/edit"
-              end
-            else
-              redirect to '/tweets'
-            end
-          end
-        else
-          redirect to '/login'
+        @tweet = Tweet.find(params[:id])
+        erb :'tweets/edit'
+    end
+
+    patch '/tweets/:id' do
+        tweet = Tweet.find(params[:id])
+        if params[:tweet][:content] == ""
+            session[:error] = "Tweet cannot be blank"
+            redirect "/tweets/#{tweet.id}/edit"
         end
-      end
-    
-      delete '/tweets/:id/delete' do
-        if logged_in?
-          @tweet = Tweet.find_by_id(params[:id])
-          if @tweet && @tweet.user == current_user
-            @tweet.delete
-          end
-          redirect to '/tweets'
-        else
-          redirect to '/login'
+        if !Helpers.is_logged_in?(session)
+            redirect to '/login'
         end
-      end
-      
+        user = User.find(session[:user_id])
+        if user == tweet.user
+            tweet.update(params[:tweet])
+
+        end
+    end
+
+    delete '/tweets/:id' do
+        if !Helpers.is_logged_in?(session)
+            redirect to '/login'
+        end
+        user = User.find(session[:user_id])
+        tweet = Tweet.find(params[:id])
+        if user != tweet.user
+            redirect "/tweets/#{tweet.id}"
+        end
+        Tweet.destroy(params[:id])
+        redirect '/tweets'
+        
+    end
+
+
 end
